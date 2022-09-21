@@ -73,7 +73,7 @@ $lastrepo = (Get-ChildItem $ingress -Filter ("*" + $subfolderstem + "*") | Sort-
 
 try {
 
-    if ($lastrepo -eq $null) {
+    if ($null -eq $lastrepo) {
         logwrite("This month has no previous batches.")
         $incrementalnumber = "01"
         $subfolder = $subfolderstem + $incrementalnumber
