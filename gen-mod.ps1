@@ -141,7 +141,7 @@ foreach ($mod in $dirs) {
 
     # Fullartist, Title, Metadata, LengthHR, AddedToStation
 
-    $tracklist = $tracklist + [PSCustomObject]@{Artist = $Artist; Title = $Title; Album = $Album; track = $orginname; failed = $fail; }
+
 
         
     $cmd = "..\ffmpeg.exe -i " + ($sourcepath + ".flac") + " -metadata title=`"$Title`" -metadata artist=`"$Artist`" -metadata album=`"$Album`" " + ($catdip + $mod.Name + ".flac")
@@ -163,7 +163,7 @@ foreach ($mod in $dirs) {
     # from files. Thimeo's product for audio levelling is called WatchCat. So... It's my kinda humor.
 
     $count = 0
-    $maxTries = 6
+    $maxTries = 20
     $catprocessed = $false
       
     logwrite ("Waiting for Thimeo Watchcat to process this file")
@@ -180,7 +180,7 @@ foreach ($mod in $dirs) {
         Else {
             logwrite ("... Here kitty, kitty, kitty.")
             If ($count -lt ($maxTries - 1)) {
-                Start-Sleep -Seconds 10
+                Start-Sleep -Seconds 2
             }
             $count++
 
@@ -193,13 +193,18 @@ foreach ($mod in $dirs) {
     }
     else {
         logwrite("The moggie fell asleep again.")
+        $fail = 1
+        $tracklist = $tracklist + [PSCustomObject]@{Artist = $Artist; Title = $Title; Album = $Album; track = $orginname; failed = $fail; }
+        continue
 
     }
+
+        $tracklist = $tracklist + [PSCustomObject]@{Artist = $Artist; Title = $Title; Album = $Album; track = $orginname; failed = $fail; }
 
     Remove-Item ($sourcepath + ".flac") -Confirm:$false -Force
 
 
-    $fail = 0
+    
     try {
         Move-Item ($catdip + "Ready\" + $mod.Name + ".flac")  (($ingress + $subfolder + "\selected\")) -Force -Confirm:$false
         Move-Item ($sourcepath)  (($ingress + $subfolder)) -Force -Confirm:$false
@@ -214,5 +219,5 @@ foreach ($mod in $dirs) {
 }
 
 logwrite ("The process is now done. Saving the processed track to a CSV")
-$tracklist | export-csv -path ($ProcessPath + "tracklist-1.csv") -delimiter ";" -encoding utf8 -NoTypeInformation
+$tracklist | export-csv -path ($ProcessPath + "tracklist-" + $subfolder + ".csv") -delimiter ";" -encoding utf8 -NoTypeInformation
 
