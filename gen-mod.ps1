@@ -28,33 +28,35 @@ $tracklist = ""
 
 $tracklist = @()
 
+$tsf = Get-Date -Format "yyyy-MM-dd-HHmmss"
+
 #----------------------------------------------------------[Declarations]----------------------------------------------------------
 
-$ingress="D:\Tools\OpenMPT\Ingress\" # We to get the modules.
+$ingress = "D:\Projekt\Tools\OpenMPT\Ingress\" # We to get the modules.
 
-$Basepath = "D:\Tools\OpenMPT\"
+$Basepath = "D:\Projekt\Tools\OpenMPT\"
 
 $ProcessPath = $Basepath + "Process\"
 
 $LogDir = $Basepath + "Logdir\" # Where to store the logs.
 
-$catdip = "D:\Tools\OpenMPT\Process\Catdip\" # Store the file where Thimeo WatchCat will find it.
+$catdip = "D:\Projekt\Tools\OpenMPT\Process\Catdip\" # Store the file where Thimeo WatchCat will find it.
 
-$destinationpath = "D:\Tools\OpenMPT\Ingress\" # The base path, where a new subfolder will be created.
+$destinationpath = "D:\Projekt\Tools\OpenMPT\Ingress\" # The base path, where a new subfolder will be created.
 
-$ErrorActionPreference="stop"
+$ErrorActionPreference = "stop"
 
 #-----------------------------------------------------------[Functions]------------------------------------------------------------
 
-Function Logwrite ($message, $todisk = 1, $LD = $LogDir) {
+Function Logwrite ($message, $todisk = 1, $LD = $LogDir, $tsf = $tsf) {
     $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $tsf = Get-Date -Format "yyyy-MM-dd-HHmmss"
+    
     write-host ("[" + $ts + "] " + $message)
   
     $file = $LD + $tsf + "_Log.txt"
   
     if ($todisk -eq 1) { ("[" + $ts + "] " + $message) | out-file $file -append }
-  }
+}
 
 #-----------------------------------------------------------[Execution]------------------------------------------------------------
 
@@ -62,159 +64,155 @@ Set-Location $ProcessPath
 
 # Figure out the new subfolder to create
 
-$subfolderstem="TERN-"
-$subfolderstem=($subfolderstem + (Get-date -uformat %b%Y).ToLower() + "-") 
+$subfolderstem = "TERN-"
+$subfolderstem = ($subfolderstem + (Get-date -uformat %b%Y).ToLower() + "-") 
 
 $lastrepo = $null
 
-$lastrepo=(Get-ChildItem $ingress -Filter ("*" + $subfolderstem + "*")|Sort-Object { $_.Name } -Descending)[0].Name.tostring()
+$lastrepo = (Get-ChildItem $ingress -Filter ("*" + $subfolderstem + "*") | Sort-Object { $_.Name } -Descending)[0].Name.tostring()
 
-try
-{
+try {
 
-if ($lastrepo -eq $null)
-{
-    logwrite("This month has no previous batches.")
-    $incrementalnumber="01"
-    $subfolder=$subfolderstem + $incrementalnumber
-}
-else
-{
+    if ($lastrepo -eq $null) {
+        logwrite("This month has no previous batches.")
+        $incrementalnumber = "01"
+        $subfolder = $subfolderstem + $incrementalnumber
+    }
+    else {
     
-    $rc=$lastrepo -imatch "([^\-])$";
-    [int]$incrementalnumber=$matches[0]
-    $subfolder=$subfolderstem + "0" + ($incrementalnumber + 1)
-    logwrite("Last batch for this month was " + $lastrepo + ". Next will be " + $subfolder + ".")
+        $rc = $lastrepo -imatch "([^\-])$";
+        [int]$incrementalnumber = $matches[0]
+        $subfolder = $subfolderstem + "0" + ($incrementalnumber + 1)
+        logwrite("Last batch for this month was " + $lastrepo + ". Next will be " + $subfolder + ".")
     
-}
+    }
 
-    if (test-path ($ingress + $subfolder))
-    {
+    if (test-path ($ingress + $subfolder)) {
         logwrite("The destination folder exists. This should not have happened, yet here we are.")
         exit
     }
-    else
-    { 
-    $rc=New-Item (($ingress + $subfolder)) -ItemType "directory"
-    $rc=New-Item (($ingress + $subfolder) + "/selected/") -ItemType "directory"
+    else { 
+        $rc = New-Item (($ingress + $subfolder)) -ItemType "directory"
+        $rc = New-Item (($ingress + $subfolder) + "/selected/") -ItemType "directory"
     }
 }
-catch
-{
+catch {
     logwrite("[Error] Unable to find the proper foldername. Please investigate. Given EC: " + $_)
     exit
 }
 
-$im=0
-$dirs=get-childitem $ingress -File
-$total=$dirs.count
+$im = 0
+$dirs = get-childitem $ingress -File
+$total = $dirs.count
 
 
-foreach ($mod in $dirs)
-{
+foreach ($mod in $dirs) {
 
-$im++
-$pct=($im/$total)*100
-
-
-  Logwrite("->" + $im + "/" + $total + "(" + [math]::Round($pct,2) + ") Processing " + $mod.Name + ".")
+    $im++
+    $pct = ($im / $total) * 100
 
 
-$sourcepath = $ingress + $mod.Name
-
-    $ErrorActionPreference="stop"
-
-    If (Test-Path ($catdip + "processed\" + $mod.Name + ".flac")) { Remove-item ($catdip + "processed\" + $mod.Name + ".flac") -Confirm:$false -Force } 
-
-    $trackdata=(..\openmpt123.exe --info -v --render $sourcepath --force --output-type flac)
+    Logwrite("->" + $im + "/" + $total + "(" + [math]::Round($pct, 2) + ") Processing " + $mod.Name + ".")
 
 
-    $Album="OriginalName: " + $mod.Name + " Imported: " +  (get-date -uformat %Y-%m-%d) + " (" + $subfolder + ")."
-    $Title=$trackdata -match '^Title[^\:]*..(.*)'
-    $Title=$Title.split(':')[1].trim()
-    $Artist="Trackerartist"
+    $sourcepath = $ingress + $mod.Name
 
-    $fail=0
+    $ErrorActionPreference = "stop"
+
+    If (Test-Path ($catdip + "Ready\" + $mod.Name + ".flac")) { Remove-item ($catdip + "Ready\" + $mod.Name + ".flac") -Confirm:$false -Force } 
+    If (Test-Path ($catdip + "Processed\" + $mod.Name + ".flac")) { Remove-item ($catdip + "Processed\" + $mod.Name + ".flac") -Confirm:$false -Force } 
+
+    if ($mod.Name -ilike "*.mod") {
+        logwrite("Amiga module detected. Pushing to mono")
+        $trackdata = (..\openmpt123.exe --info -v --stereo 0 --render $sourcepath --force --output-type flac)
+    }
+    else {
+        $trackdata = (..\openmpt123.exe --info -v --render $sourcepath --force --output-type flac)
+    }
+
+
+
+    $Album = "OriginalName: " + $mod.Name + " Imported: " + (get-date -uformat %Y-%m-%d) + " (" + $subfolder + ")."
+    $Title = $trackdata -match '^Title[^\:]*..(.*)'
+    $Title = $Title.split(':')[1].trim()
+    $Artist = "Trackerartist"
+
+    $fail = 0
 
     # Fullartist, Title, Metadata, LengthHR, AddedToStation
 
-        $tracklist = $tracklist + [PSCustomObject]@{Artist = $Artist; Title= $Title; Album = $Album; track=$orginname; failed=$fail; }
+    $tracklist = $tracklist + [PSCustomObject]@{Artist = $Artist; Title = $Title; Album = $Album; track = $orginname; failed = $fail; }
 
         
-        $cmd="..\ffmpeg.exe -i " + ($sourcepath + ".flac") + " -metadata title=`"$Title`" -metadata artist=`"$Artist`" -metadata album=`"$Album`" " + ($catdip + $mod.Name + ".flac")
+    $cmd = "..\ffmpeg.exe -i " + ($sourcepath + ".flac") + " -metadata title=`"$Title`" -metadata artist=`"$Artist`" -metadata album=`"$Album`" " + ($catdip + $mod.Name + ".flac")
         
-        try
-        {
-           cmd /c $cmd
-        }
-        catch
-        {
-            # This may seem dumb, and you're right, it is. 
-            # ffmpeg thinks it brilliant to send progressdata down the stderr output.
-            # Really not the smartest thing to do.
-            # Powershell compounds the problem by only keep the first line in $_. Good luck parsing, when
-            # you only get ffmpeg and the versionnumber.
-        }
+    try {
+        cmd /c $cmd
+    }
+    catch {
+        # This may seem dumb, and you're right, it is. 
+        # ffmpeg thinks it brilliant to send progressdata down the stderr output.
+        # Really not the smartest thing to do.
+        # Powershell compounds the problem by only keep the first line in $_. Good luck parsing, when
+        # you only get ffmpeg and the versionnumber.
+    }
 
 
-        # Wait for the tune to go through the catdip
-        # The correct term is sheepdip, as in a sanitization-process to remove bad stuff 
-        # from files. Thimeo's product for audio levelling is called WatchCat. So... It's my kinda humor.
+    # Wait for the tune to go through the catdip
+    # The correct term is sheepdip, as in a sanitization-process to remove bad stuff 
+    # from files. Thimeo's product for audio levelling is called WatchCat. So... It's my kinda humor.
 
-        $count = 0
-        $maxTries = 6
-        $catprocessed = $false
+    $count = 0
+    $maxTries = 6
+    $catprocessed = $false
       
-                logwrite ("Waiting for Thimeo Watchcat to process this file")
+    logwrite ("Waiting for Thimeo Watchcat to process this file")
 
-        do {
+    do {
 
         
     
-    If (Test-Path ($catdip + "processed\" + $mod.Name + ".flac")) {
-        $count = $maxTries
-        $catprocessed = $true
+        If (Test-Path ($catdip + "Ready\" + $mod.Name + ".flac")) {
+            $count = $maxTries
+            $catprocessed = $true
 
-    } Else {
-        logwrite ("... Here kitty, kitty, kitty.")
-        If ($count -lt ($maxTries - 1)) {
-            Start-Sleep -Seconds 10
         }
-        $count++
+        Else {
+            logwrite ("... Here kitty, kitty, kitty.")
+            If ($count -lt ($maxTries - 1)) {
+                Start-Sleep -Seconds 10
+            }
+            $count++
 
-    }
+        }
 
-} While ($count -lt $maxTries)
+    } While ($count -lt $maxTries)
 
-    if ($catprocessed -eq $true)
-    {
+    if ($catprocessed -eq $true) {
         logwrite("The file was succesfully processed by Watchcat")
     }
-    else
-    {
+    else {
         logwrite("The moggie fell asleep again.")
 
     }
 
-        Remove-Item ($sourcepath + ".flac") -Confirm:$false -Force
+    Remove-Item ($sourcepath + ".flac") -Confirm:$false -Force
 
 
-        $fail=0
-        try
-    {
-        Move-Item ($catdip + "processed\" + $mod.Name + ".flac")  (($ingress + $subfolder + "\selected\")) -Force -Confirm:$false
+    $fail = 0
+    try {
+        Move-Item ($catdip + "Ready\" + $mod.Name + ".flac")  (($ingress + $subfolder + "\selected\")) -Force -Confirm:$false
         Move-Item ($sourcepath)  (($ingress + $subfolder)) -Force -Confirm:$false
 
-    $fail=0
+        $fail = 0
     }
-    catch
-    {
-        Logwrite(("[ERROR] Couldn't move " + ($catdip + "processed\" + $mod.Name + ".flac")  + " to " + $destinationpath + ". Reason: " + $_ + "."))
-        $fail=1
+    catch {
+        Logwrite(("[ERROR] Couldn't move " + ($catdip + "Ready\" + $mod.Name + ".flac") + " to " + $destinationpath + ". Reason: " + $_ + "."))
+        $fail = 1
     } 
   
 }
 
 logwrite ("The process is now done. Saving the processed track to a CSV")
-$tracklist|export-csv -path ($ProcessPath + "tracklist-1.csv") -delimiter ";" -encoding utf8 -NoTypeInformation
+$tracklist | export-csv -path ($ProcessPath + "tracklist-1.csv") -delimiter ";" -encoding utf8 -NoTypeInformation
 
