@@ -115,7 +115,7 @@ foreach ($mod in $dirs) {
     Logwrite("->" + $im + "/" + $total + "(" + [math]::Round($pct, 2) + ") Processing " + $mod.Name + ".")
 
 
-    $sourcepath = $ingress + $mod.Name
+    $sourcepath = ("`"" + $ingress + $mod.Name + "`"")
 
     $ErrorActionPreference = "stop"
 
@@ -130,8 +130,6 @@ foreach ($mod in $dirs) {
         $trackdata = (..\openmpt123.exe --info -v --render $sourcepath --force --output-type flac)
     }
 
-
-
     $Album = "OriginalName: " + $mod.Name + " Imported: " + (get-date -uformat %Y-%m-%d) + " (" + $subfolder + ")."
     $Title = $trackdata -match '^Title[^\:]*..(.*)'
     $Title = $Title.split(':')[1].trim()
@@ -144,7 +142,7 @@ foreach ($mod in $dirs) {
 
 
         
-    $cmd = "..\ffmpeg.exe -i " + ($sourcepath + ".flac") + " -metadata title=`"$Title`" -metadata artist=`"$Artist`" -metadata album=`"$Album`" " + ($catdip + $mod.Name + ".flac")
+    $cmd = "..\ffmpeg.exe -i " + ($sourcepath + ".flac") + " -metadata title=`"$Title`" -metadata artist=`"$Artist`" -metadata album=`"$Album`" " + ("`"" + $catdip + $mod.Name + ".flac" + "`"")
         
     try {
         cmd /c $cmd
@@ -199,25 +197,29 @@ foreach ($mod in $dirs) {
 
     }
 
-        $tracklist = $tracklist + [PSCustomObject]@{Artist = $Artist; Title = $Title; Album = $Album; track = $orginname; failed = $fail; }
+    $tracklist = $tracklist + [PSCustomObject]@{Artist = $Artist; Title = $Title; Album = $Album; track = $orginname; failed = $fail; }
 
-    Remove-Item ($sourcepath + ".flac") -Confirm:$false -Force
+    if (test-path(($ingress + $mod.Name + ".flac"))) { Remove-Item ($ingress + $mod.Name + ".flac") -Confirm:$false -Force }
 
+    #"boop"
+    $readymap = ("`"" + $catdip + "Ready\" + $mod.Name + ".flac" + "`"")
+    $readymap2 = ($catdip + "Ready\" + $mod.Name + ".flac")
+    $sp = $ingress + $mod.Name
 
-    
     try {
-        Move-Item ($catdip + "Ready\" + $mod.Name + ".flac")  (($ingress + $subfolder + "\selected\")) -Force -Confirm:$false
-        Move-Item ($sourcepath)  (($ingress + $subfolder)) -Force -Confirm:$false
+
+        Move-Item -LiteralPath $readymap2 ($ingress + $subfolder + "\selected\") -Force -Confirm:$false
+        Move-Item -LiteralPath $sp  (($ingress + $subfolder)) -Force -Confirm:$false
 
         $fail = 0
     }
     catch {
-        Logwrite(("[ERROR] Couldn't move " + ($catdip + "Ready\" + $mod.Name + ".flac") + " to " + $destinationpath + ". Reason: " + $_ + "."))
+        Logwrite(("[ERROR] Couldn't move " + $readymap2 + " to " + $destinationpath + ". Reason: " + $_ + "."))
         $fail = 1
     } 
   
 }
 
+
 logwrite ("The process is now done. Saving the processed track to a CSV")
 $tracklist | export-csv -path ($ProcessPath + "tracklist-" + $subfolder + ".csv") -delimiter ";" -encoding utf8 -NoTypeInformation
-
