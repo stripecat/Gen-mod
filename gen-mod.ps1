@@ -197,17 +197,17 @@ foreach ($mod in $dirs) {
 
     }
 
-    $tracklist = $tracklist + [PSCustomObject]@{Artist = $Artist; Title = $Title; Album = $Album; track = $orginname; failed = $fail; }
+        $tracklist = $tracklist + [PSCustomObject]@{Artist = $Artist; Title = $Title; Album = $Album; track = $orginname; failed = $fail; }
 
     if (test-path(($ingress + $mod.Name + ".flac"))) { Remove-Item ($ingress + $mod.Name + ".flac") -Confirm:$false -Force }
 
-    #"boop"
-    $readymap = ("`"" + $catdip + "Ready\" + $mod.Name + ".flac" + "`"")
-    $readymap2 = ($catdip + "Ready\" + $mod.Name + ".flac")
-    $sp = $ingress + $mod.Name
+     $readymap=("`"" + $catdip + "Ready\" + $mod.Name + ".flac" + "`"")
+     $readymap2=($catdip + "Ready\" + $mod.Name + ".flac")
+     $sp=$ingress + $mod.Name
 
     try {
-
+        
+        Start-sleep 2
         Move-Item -LiteralPath $readymap2 ($ingress + $subfolder + "\selected\") -Force -Confirm:$false
         Move-Item -LiteralPath $sp  (($ingress + $subfolder)) -Force -Confirm:$false
 
