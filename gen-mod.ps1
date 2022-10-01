@@ -32,6 +32,8 @@ $tsf = Get-Date -Format "yyyy-MM-dd-HHmmss"
 
 #----------------------------------------------------------[Declarations]----------------------------------------------------------
 
+$Password="DEADBEEFD3ADB33F1GGGAACC45353689090" # The password for the check
+
 $ingress = "D:\Projekt\Tools\OpenMPT\Ingress\" # We to get the modules.
 
 $Basepath = "D:\Projekt\Tools\OpenMPT\"
@@ -58,6 +60,48 @@ Function Logwrite ($message, $todisk = 1, $LD = $LogDir, $tsf = $tsf) {
     if ($todisk -eq 1) { ("[" + $ts + "] " + $message) | out-file $file -append }
 }
 
+Function Read-exists($OriginalFileName,$Password=$Password)
+{
+
+    # We will check if the song already exists on the station.
+    # This is done but searching for the original file name of the file in the API.
+
+    $StationID=1 # Hardwired as we don't push to station 2 from this script.
+    $Domain = "https://api.ericade.net"
+    $url = $Domain + "/radio/checkifexists/";
+    $params = "{
+    `"Password`": `"" + $Password + "`",
+    `"StationID`": `""+ $StationID + "`",
+    `"OriginalFileName`": `""+ $OriginalFileName + "`"
+    }";
+
+
+    try {
+ 
+ #$url|out-file "d:\url.txt"
+ 
+  #      $params | out-file "d:\req.txt"
+
+
+        $CheckStatus = Invoke-WebRequest $url -Method Post -Body $params -UseBasicParsing -ContentType "application/json; charset=utf-8"
+
+
+        $CheckStatus.Content | out-file "d:\resp.txt"
+
+        $CallResult = ConvertFrom-Json ($CheckStatus.Content)
+
+        if ($CallResult.subcode -eq "TRUE") { return ("[WARNING] Track appears to already exist on the station."); } else { return ("The song is new.") }
+
+
+    }
+    catch {
+        logwrite("[ERROR] Unable to determine is the track already exists on the station. Given EC: " + $_ + ".")
+
+    }
+
+
+}
+
 #-----------------------------------------------------------[Execution]------------------------------------------------------------
 
 Set-Location $ProcessPath
@@ -69,14 +113,31 @@ $subfolderstem = ($subfolderstem + (Get-date -uformat %b%Y).ToLower() + "-")
 
 $lastrepo = $null
 
-$lastrepo = (Get-ChildItem $ingress -Filter ("*" + $subfolderstem + "*") | Sort-Object { $_.Name } -Descending)[0].Name.tostring()
+
+$im = 0
+$dirs = get-childitem $ingress -File|where-object { $_.Name -notlike '*.flac' } # Weird, huh? -Exclude has a bug. It will not work with -file.
+$total = $dirs.count
+
+if ($total -eq 0)
+{
+   logwrite("[Error] There seem to be no files to pick up.")
+   exit 
+}
+
+try {
+    $lastrepo = (Get-ChildItem $ingress -Filter ("*" + $subfolderstem + "*") | Sort-Object { $_.Name } -Descending)[0].Name.tostring()
+}
+catch {
+    #logwrite("[Error] There seem to be no files to pick up. Given EC: " + $_ + ".")
+    #exit
+}
 
 try {
 
     if ($null -eq $lastrepo) {
         logwrite("This month has no previous batches.")
-        $incrementalnumber = "01"
-        $subfolder = $subfolderstem + $incrementalnumber
+        $incrementalnumber = "1"
+        $subfolder = $subfolderstem + "0" + $incrementalnumber
     }
     else {
     
@@ -100,11 +161,6 @@ catch {
     logwrite("[Error] Unable to find the proper foldername. Please investigate. Given EC: " + $_)
     exit
 }
-
-$im = 0
-$dirs = get-childitem $ingress -File
-$total = $dirs.count
-
 
 foreach ($mod in $dirs) {
 
@@ -130,6 +186,10 @@ foreach ($mod in $dirs) {
         $trackdata = (..\openmpt123.exe --info -v --render $sourcepath --force --output-type flac)
     }
 
+    $re=(Read-exists $mod.Name)
+
+    logwrite("Station validation: " + $re)
+
     $Album = "OriginalName: " + $mod.Name + " Imported: " + (get-date -uformat %Y-%m-%d) + " (" + $subfolder + ")."
     $Title = $trackdata -match '^Title[^\:]*..(.*)'
     $Title = $Title.split(':')[1].trim()
@@ -139,13 +199,10 @@ foreach ($mod in $dirs) {
 
     # Fullartist, Title, Metadata, LengthHR, AddedToStation
 
-
-
-        
     $cmd = "..\ffmpeg.exe -i " + ($sourcepath + ".flac") + " -metadata title=`"$Title`" -metadata artist=`"$Artist`" -metadata album=`"$Album`" " + ("`"" + $catdip + $mod.Name + ".flac" + "`"")
         
     try {
-        cmd /c $cmd
+        cmd /c ($cmd + ' > NUL 2>&1') 
     }
     catch {
         # This may seem dumb, and you're right, it is. 
@@ -154,7 +211,6 @@ foreach ($mod in $dirs) {
         # Powershell compounds the problem by only keep the first line in $_. Good luck parsing, when
         # you only get ffmpeg and the versionnumber.
     }
-
 
     # Wait for the tune to go through the catdip
     # The correct term is sheepdip, as in a sanitization-process to remove bad stuff 
