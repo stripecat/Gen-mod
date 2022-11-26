@@ -12,11 +12,11 @@
 .OUTPUTS
   Stdout
 .NOTES
-  Version:        1.0
+  Version:        1.1
   Author:         Erik Zalitis
   Creation Date:  2022-09-21
-  Latest update:  2022-09-21
-  Purpose/Change: Initial release.
+  Latest update:  2022-11-26
+  Purpose/Change: Empty titles would cause script to crash.
   
 .EXAMPLE
   gen-mod
@@ -190,12 +190,23 @@ foreach ($mod in $dirs) {
 
     logwrite("Station validation: " + $re)
 
+
     $Album = "OriginalName: " + $mod.Name + " Imported: " + (get-date -uformat %Y-%m-%d) + " (" + $subfolder + ")."
     $Title = $trackdata -match '^Title[^\:]*..(.*)'
-    $Title = $Title.split(':')[1].trim()
+    
+      $fail = 0
+    try
+    {
+    if ($Title -ne "") { $Title = $Title.split(':')[1].trim() } else { $Title = "Unknown Title" }
     $Artist = "Trackerartist"
+    }
+    catch
+    {  $fail = 1
+      logwrite("[Error] Could not find title")
+      $Title = "Unknown Title"
+    }
 
-    $fail = 0
+  
 
     # Fullartist, Title, Metadata, LengthHR, AddedToStation
 
