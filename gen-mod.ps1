@@ -12,17 +12,22 @@
 .OUTPUTS
   Stdout
 .NOTES
-  Version:        1.1
+  Version:        1.0
   Author:         Erik Zalitis
   Creation Date:  2022-09-21
-  Latest update:  2022-11-26
-  Purpose/Change: Empty titles would cause script to crash.
+  Latest update:  2025-10-28
+  Purpose/Change: Initial release.
   
 .EXAMPLE
   gen-mod
 #>
 
 #---------------------------------------------------------[Initialisations]--------------------------------------------------------
+
+	
+$Errors = New-Object -TypeName System.Collections.ArrayList
+	
+$Dups = New-Object -TypeName System.Collections.ArrayList
 
 $tracklist = ""
 
@@ -32,19 +37,19 @@ $tsf = Get-Date -Format "yyyy-MM-dd-HHmmss"
 
 #----------------------------------------------------------[Declarations]----------------------------------------------------------
 
-$Password="DEADBEEFD3ADB33F1GGGAACC45353689090" # The password for the check
+$Password="<<PASSWORD>>" # The password for the check
 
-$ingress = "D:\Projekt\Tools\OpenMPT\Ingress\" # We to get the modules.
+$ingress = "C:\Projekt\Tools\OpenMPT\Ingress\" # We to get the modules.
 
-$Basepath = "D:\Projekt\Tools\OpenMPT\"
+$Basepath = "C:\Projekt\Tools\OpenMPT\"
 
 $ProcessPath = $Basepath + "Process\"
 
 $LogDir = $Basepath + "Logdir\" # Where to store the logs.
 
-$catdip = "D:\Projekt\Tools\OpenMPT\Process\Catdip\" # Store the file where Thimeo WatchCat will find it.
+$catdip = "C:\Projekt\Tools\OpenMPT\Process\Catdip\" # Store the file where Thimeo WatchCat will find it.
 
-$destinationpath = "D:\Projekt\Tools\OpenMPT\Ingress\" # The base path, where a new subfolder will be created.
+$destinationpath = "C:\Projekt\Tools\OpenMPT\Ingress\" # The base path, where a new subfolder will be created.
 
 $ErrorActionPreference = "stop"
 
@@ -86,11 +91,11 @@ Function Read-exists($OriginalFileName,$Password=$Password)
         $CheckStatus = Invoke-WebRequest $url -Method Post -Body $params -UseBasicParsing -ContentType "application/json; charset=utf-8"
 
 
-        $CheckStatus.Content | out-file "d:\resp.txt"
+        $CheckStatus.Content | out-file "C:\Projekt\Tools\OpenMPT\resp.txt"
 
         $CallResult = ConvertFrom-Json ($CheckStatus.Content)
 
-        if ($CallResult.subcode -eq "TRUE") { return ("[WARNING] Track appears to already exist on the station."); } else { return ("The song is new.") }
+        if ($CallResult.subcode -eq "TRUE") { return ("[WARNING] Track appears to already exist on the station."); $rc=$Dups.add($OriginalFileName); } else { return ("The song is new.") }
 
 
     }
@@ -258,6 +263,7 @@ foreach ($mod in $dirs) {
     }
     else {
         logwrite("The moggie fell asleep again.")
+        $rc=$Errors.add($mod.Name)
         $fail = 1
         $tracklist = $tracklist + [PSCustomObject]@{Artist = $Artist; Title = $Title; Album = $Album; track = $orginname; failed = $fail; }
         continue
@@ -289,4 +295,7 @@ foreach ($mod in $dirs) {
 
 
 logwrite ("The process is now done. Saving the processed track to a CSV")
+logwrite ("Files with errors: " + $Errors)
+logwrite ("Files that already exists on the station: " + $Dups) 
+
 $tracklist | export-csv -path ($ProcessPath + "tracklist-" + $subfolder + ".csv") -delimiter ";" -encoding utf8 -NoTypeInformation
