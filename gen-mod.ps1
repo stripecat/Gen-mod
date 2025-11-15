@@ -12,11 +12,11 @@
 .OUTPUTS
   Stdout
 .NOTES
-  Version:        1.0
+  Version:        1.1
   Author:         Erik Zalitis
   Creation Date:  2022-09-21
-  Latest update:  2025-10-28
-  Purpose/Change: Initial release.
+  Latest update:  2025-11-15
+  Purpose/Change: FFMPEG is now used to normalize files. This is much faster than Thimeo WatchCat.
   
 .EXAMPLE
   gen-mod
@@ -37,9 +37,9 @@ $tsf = Get-Date -Format "yyyy-MM-dd-HHmmss"
 
 #----------------------------------------------------------[Declarations]----------------------------------------------------------
 
-$Password="<<PASSWORD>>" # The password for the check
+$Password="<Password>" # The password for the check
 
-$ingress = "C:\Projekt\Tools\OpenMPT\Ingress\" # We to get the modules.
+$ingress = "C:\Projekt\Tools\OpenMPT\Ingress\" # Where to get the modules.
 
 $Basepath = "C:\Projekt\Tools\OpenMPT\"
 
@@ -50,6 +50,8 @@ $LogDir = $Basepath + "Logdir\" # Where to store the logs.
 $catdip = "C:\Projekt\Tools\OpenMPT\Process\Catdip\" # Store the file where Thimeo WatchCat will find it.
 
 $destinationpath = "C:\Projekt\Tools\OpenMPT\Ingress\" # The base path, where a new subfolder will be created.
+
+$ffmpeg_exe = $Basepath + "ffmpeg.exe"
 
 $ErrorActionPreference = "stop"
 
@@ -215,6 +217,8 @@ foreach ($mod in $dirs) {
 
     # Fullartist, Title, Metadata, LengthHR, AddedToStation
 
+    if (test-path ($catdip + $mod.Name + ".flac")) { Remove-Item ($catdip + $mod.Name + ".flac") -force -Confirm:$false }
+
     $cmd = "..\ffmpeg.exe -i " + ($sourcepath + ".flac") + " -metadata title=`"$Title`" -metadata artist=`"$Artist`" -metadata album=`"$Album`" " + ("`"" + $catdip + $mod.Name + ".flac" + "`"")
         
     try {
@@ -227,6 +231,11 @@ foreach ($mod in $dirs) {
         # Powershell compounds the problem by only keep the first line in $_. Good luck parsing, when
         # you only get ffmpeg and the versionnumber.
     }
+
+
+    
+    <#
+
 
     # Wait for the tune to go through the catdip
     # The correct term is sheepdip, as in a sanitization-process to remove bad stuff 
@@ -270,7 +279,28 @@ foreach ($mod in $dirs) {
 
     }
 
-        $tracklist = $tracklist + [PSCustomObject]@{Artist = $Artist; Title = $Title; Album = $Album; track = $orginname; failed = $fail; }
+    #>
+   
+   # Normalize the track with FFMEG
+   # ffmpeg -i input.wav -filter:a "loudnorm=I=-23:LRA=11:tp=-2" output.wav
+
+       $cmdline = "$ffmpeg_exe -i "+ ("`"" + $catdip + $mod.Name + ".flac") + "`"" + " -filter:a " + "`"" + "loudnorm=I=-16:LRA=11:tp=-2" + "`" `"" + ($catdip + "Ready\" + $mod.Name + ".flac") + "`""
+    #Write-Verbose "`t CMD: $cmdline"
+
+
+    try {
+        ("Command line: " + $cmdline + ".")
+        cmd /c ($cmdline)
+        # + ' > NUL 2>&1') 
+    }
+    catch {
+        #("[ERROR] Failed to create the file." + $_)
+        #exit
+    }
+    
+    $tracklist = $tracklist + [PSCustomObject]@{Artist = $Artist; Title = $Title; Album = $Album; track = $orginname; failed = $fail; }
+
+
 
     if (test-path(($ingress + $mod.Name + ".flac"))) { Remove-Item ($ingress + $mod.Name + ".flac") -Confirm:$false -Force }
 
